@@ -337,41 +337,7 @@ footer{padding:40px 0 20px;color:var(--muted);font-size:.9rem}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
- function loadTargetJsonOffer(attempt) {
-
-  attempt = attempt || 0;
-
-  if (!window.adobe || !window.adobe.target) {
-
-    if (attempt < 50) {
-      setTimeout(function() {
-        loadTargetJsonOffer(attempt + 1);
-      }, 200);
-    } else {
-      console.log("Adobe Target did not load.");
-    }
-
-    return;
-  }
-
-  console.log("Adobe Target is available!");
-
-  adobe.target.getOffer({
-
-    mbox: "target-global-mbox",
-
-    success: function(offer) {
-      console.log("Target Offer Response:", offer);
-    },
-
-    error: function(status, error) {
-      console.log("Target Error:", status, error);
-    }
-
-  });
-}
-
-loadTargetJsonOffer();
+ ;
   
 const U = id => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=600&q=80`;
 const PRODUCTS = [
