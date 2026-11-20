@@ -75,6 +75,9 @@ header{position:sticky;top:0;z-index:50;background:rgba(250,248,255,.92);backdro
 .tag{position:absolute;left:0;bottom:70px;background:var(--coral);color:#fff;padding:10px 16px;border-radius:var(--r-md);font-weight:700;transform:rotate(-4deg);opacity:0;animation:fade .6s 1.1s forwards;box-shadow:0 10px 24px rgba(0,0,0,.25)}
 .tag small{display:block;font-weight:500;opacity:.9}
 
+/* Hide hero heading until Target responds (anti-flicker) */
+.hero h1.target-hide{visibility:hidden}
+
 /* MARQUEE */
 .perks{display:flex;gap:10px;overflow-x:auto;padding:22px 20px 4px;scrollbar-width:none}
 .perks::-webkit-scrollbar{display:none}
@@ -222,7 +225,7 @@ footer{padding:40px 0 20px;color:var(--muted);font-size:.9rem}
   <div class="hero">
     <div class="wrap">
       <div>
-       <h1 id="target-banner-heading">
+       <h1 id="target-banner-heading" class="target-hide">
   <span><b>Fresh kicks.</b></span>
   <span><b>Bright picks.</b></span>
   <span><b>Fast to your door.</b></span>
@@ -337,8 +340,77 @@ footer{padding:40px 0 20px;color:var(--muted);font-size:.9rem}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
- ;
-  
+/* ===== Adobe Target: read JSON offer and apply heading ===== */
+(function () {
+  var MBOX = "target-banner-mbox";          // <-- must match the mbox name in your Target activity
+  var HEADING_ID = "target-banner-heading";
+  var TIMEOUT_MS = 3000;                     // fallback if Target is slow/blocked
+  var done = false;
+  var requested = false;
+
+  function showHeading() {
+    var h1 = document.getElementById(HEADING_ID);
+    if (h1) h1.classList.remove("target-hide");
+  }
+
+  function setHeading(text) {
+    var h1 = document.getElementById(HEADING_ID);
+    if (!h1 || !text) return;
+    // Replace the 3 default lines with a single animated line
+    h1.innerHTML = "<span><b></b></span>";
+    h1.querySelector("b").textContent = text;
+  }
+
+  function finish() {
+    if (done) return;
+    done = true;
+    showHeading();
+  }
+
+  // Safety net: always reveal the default heading if Target doesn't respond
+  setTimeout(finish, TIMEOUT_MS);
+
+  function requestOffer() {
+    if (requested) return true;
+    if (!window.adobe || !adobe.target || !adobe.target.getOffer) return false;
+    requested = true;
+
+    adobe.target.getOffer({
+      mbox: MBOX,
+      success: function (offer) {
+        try {
+          // JSON offer comes back as: [{ type: "json", content: { heading: "..." } }]
+          if (offer && offer.length) {
+            var content = offer[0].content;
+            if (typeof content === "string") content = JSON.parse(content);
+            if (content && content.heading) setHeading(content.heading);
+          }
+          // Fires the display notification so Target counts the impression
+          adobe.target.applyOffer({ mbox: MBOX, offer: offer });
+        } catch (err) {
+          console.warn("Target JSON parse error:", err);
+        }
+        finish();
+      },
+      error: function (status, error) {
+        console.warn("Target error:", status, error);
+        finish();
+      }
+    });
+    return true;
+  }
+
+  // at.js may already be loaded, or may load later via Adobe Launch
+  if (!requestOffer()) {
+    document.addEventListener("at-library-loaded", requestOffer);
+    var tries = 0;
+    var poll = setInterval(function () {
+      if (requestOffer() || ++tries > 30) clearInterval(poll);
+    }, 100);
+  }
+})();
+/* ===== End Adobe Target ===== */
+
 const U = id => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=600&q=80`;
 const PRODUCTS = [
   {id:1,name:"Velocity Runner",kw:"shoe",cat:"Shoes",price:89,old:129,rate:4.8,img:U("photo-1542291026-7eec264c27ff"),tag:"-31%"},
