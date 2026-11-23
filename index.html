@@ -377,6 +377,91 @@ document.addEventListener("error",e=>{
   else if(st===1){t.dataset.stage=2;t.src=art(k)}
 },true);
 
+
+// ADOBE TARGET JSON OFFER INTEGRATION
+// The Form-Based XT activity location was configured as "target-global-mbox".
+// Keep this name identical to the location configured in the Adobe Target activity.
+function loadTargetJsonOffer(attempt) {
+  attempt = attempt || 0;
+
+  // Launch loads asynchronously, so wait until at.js is ready.
+  if (
+    !window.adobe ||
+    !window.adobe.target ||
+    typeof window.adobe.target.getOffer !== "function"
+  ) {
+    if (attempt < 50) {
+      window.setTimeout(function () {
+        loadTargetJsonOffer(attempt + 1);
+      }, 200);
+    } else {
+      console.error("Adobe Target did not become available. Check the Launch library and Target extension.");
+    }
+    return;
+  }
+
+  console.log("Adobe Target is available. Requesting the JSON Offer...");
+
+  window.adobe.target.getOffer({
+    mbox: "target-global-mbox",
+
+    success: function (actions) {
+      console.log("Adobe Target getOffer response:", actions);
+
+      if (!Array.isArray(actions)) {
+        console.error("Unexpected Target response format:", actions);
+        return;
+      }
+
+      var jsonAction = actions.find(function (item) {
+        return item && item.action === "setJson";
+      });
+
+      if (!jsonAction || !Array.isArray(jsonAction.content) || !jsonAction.content.length) {
+        console.warn("No JSON Offer was returned for target-global-mbox. Check activity status, audience matching, and the mbox location.");
+        return;
+      }
+
+      // Adobe delivers JSON Offer content as a native JSON object.
+      var offerData = jsonAction.content[0];
+      console.log("Adobe Target JSON Offer data:", offerData);
+
+      var heading = document.getElementById("target-banner-heading");
+
+      if (!heading) {
+        console.error('The banner heading element "#target-banner-heading" was not found.');
+        return;
+      }
+
+      if (typeof offerData.heading !== "string" || !offerData.heading.trim()) {
+        console.warn('The JSON Offer does not contain a non-empty "heading" string.', offerData);
+        return;
+      }
+
+      // Update the first animated heading line and remove the other default lines.
+      var firstLine = heading.querySelector("span b");
+
+      if (firstLine) {
+        firstLine.textContent = offerData.heading;
+        var remainingLines = heading.querySelectorAll("span");
+        for (var i = 1; i < remainingLines.length; i++) {
+          remainingLines[i].remove();
+        }
+      } else {
+        heading.textContent = offerData.heading;
+      }
+
+      console.log("Banner heading updated from the Adobe Target JSON Offer.");
+    },
+
+    error: function (status, error) {
+      console.error("Adobe Target JSON Offer request failed:", status, error);
+    },
+
+    timeout: 5000
+  });
+}
+
 function renderChips(){
   $("#chips").innerHTML = CATS.map(c=>`<button class="chip ${c===filter?"on":""}" data-c="${c}" role="tab" aria-selected="${c===filter}">${c}</button>`).join("");
 }
@@ -462,6 +547,9 @@ const io=new IntersectionObserver(es=>es.forEach(en=>{
 ["top","shop","about"].forEach(id=>io.observe(document.getElementById(id)));
 
 renderChips();renderGrid();renderCart();
+
+// Request the JSON Offer after the page elements have been created.
+loadTargetJsonOffer();
 </script>
 </body>
 </html>
