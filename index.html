@@ -337,8 +337,6 @@ footer{padding:40px 0 20px;color:var(--muted);font-size:.9rem}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
- ;
-  
 const U = id => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=600&q=80`;
 const PRODUCTS = [
   {id:1,name:"Velocity Runner",kw:"shoe",cat:"Shoes",price:89,old:129,rate:4.8,img:U("photo-1542291026-7eec264c27ff"),tag:"-31%"},
@@ -378,9 +376,70 @@ document.addEventListener("error",e=>{
 },true);
 
 
-// ADOBE TARGET JSON OFFER INTEGRATION
-// The Form-Based XT activity location was configured as "target-global-mbox".
-// Keep this name identical to the location configured in the Adobe Target activity.
+// ============================================================
+// ADOBE TARGET JSON OFFER INTEGRATION (FIXED)
+// Form-Based XT activity location must be exactly: target-global-mbox
+// Expected JSON offer: { "heading": "DONEEE" }
+// ============================================================
+
+// Pull the JSON object out of whatever shape Target returns.
+function extractJsonOffer(offers) {
+  var offerData = null;
+
+  offers.forEach(function (item) {
+    if (!item || offerData) return;
+
+    // at.js 2.x format: { type: "json", content: { heading: "..." } }
+    if (item.type === "json" && item.content) {
+      offerData = Array.isArray(item.content) ? item.content[0] : item.content;
+      return;
+    }
+
+    // at.js 1.x format: { action: "setJson", content: [ { heading: "..." } ] }
+    if (item.action === "setJson" && Array.isArray(item.content)) {
+      offerData = item.content[0];
+      return;
+    }
+
+    // Fallback: content is already a plain object that has "heading"
+    if (item.content && typeof item.content === "object" && item.content.heading) {
+      offerData = item.content;
+    }
+  });
+
+  // If the content came back as a JSON string, parse it.
+  if (typeof offerData === "string") {
+    try { offerData = JSON.parse(offerData); } catch (e) { offerData = null; }
+  }
+
+  return offerData;
+}
+
+// Write the heading into the hero banner.
+function applyHeading(text) {
+  var heading = document.getElementById("target-banner-heading");
+
+  if (!heading) {
+    console.error('The banner heading element "#target-banner-heading" was not found.');
+    return;
+  }
+
+  var firstLine = heading.querySelector("span b");
+
+  if (firstLine) {
+    // Keep the first animated line, put the offer text in it, remove the other default lines.
+    firstLine.textContent = text;
+    var lines = heading.querySelectorAll("span");
+    for (var i = 1; i < lines.length; i++) {
+      lines[i].remove();
+    }
+  } else {
+    heading.textContent = text;
+  }
+
+  console.log("Banner heading updated from Adobe Target:", text);
+}
+
 function loadTargetJsonOffer(attempt) {
   attempt = attempt || 0;
 
@@ -405,53 +464,23 @@ function loadTargetJsonOffer(attempt) {
   window.adobe.target.getOffer({
     mbox: "target-global-mbox",
 
-    success: function (actions) {
-      console.log("Adobe Target getOffer response:", actions);
+    success: function (offers) {
+      console.log("Adobe Target getOffer response:", offers);
 
-      if (!Array.isArray(actions)) {
-        console.error("Unexpected Target response format:", actions);
+      if (!Array.isArray(offers) || !offers.length) {
+        console.warn("No offers returned for target-global-mbox. Check activity status, audience and the location name.");
         return;
       }
 
-      var jsonAction = actions.find(function (item) {
-        return item && item.action === "setJson";
-      });
-
-      if (!jsonAction || !Array.isArray(jsonAction.content) || !jsonAction.content.length) {
-        console.warn("No JSON Offer was returned for target-global-mbox. Check activity status, audience matching, and the mbox location.");
-        return;
-      }
-
-      // Adobe delivers JSON Offer content as a native JSON object.
-      var offerData = jsonAction.content[0];
+      var offerData = extractJsonOffer(offers);
       console.log("Adobe Target JSON Offer data:", offerData);
 
-      var heading = document.getElementById("target-banner-heading");
-
-      if (!heading) {
-        console.error('The banner heading element "#target-banner-heading" was not found.');
+      if (!offerData || typeof offerData.heading !== "string" || !offerData.heading.trim()) {
+        console.warn('The JSON Offer does not contain a non-empty "heading" string.', offers);
         return;
       }
 
-      if (typeof offerData.heading !== "string" || !offerData.heading.trim()) {
-        console.warn('The JSON Offer does not contain a non-empty "heading" string.', offerData);
-        return;
-      }
-
-      // Update the first animated heading line and remove the other default lines.
-      var firstLine = heading.querySelector("span b");
-
-      if (firstLine) {
-        firstLine.textContent = offerData.heading;
-        var remainingLines = heading.querySelectorAll("span");
-        for (var i = 1; i < remainingLines.length; i++) {
-          remainingLines[i].remove();
-        }
-      } else {
-        heading.textContent = offerData.heading;
-      }
-
-      console.log("Banner heading updated from the Adobe Target JSON Offer.");
+      applyHeading(offerData.heading);
     },
 
     error: function (status, error) {
