@@ -9,6 +9,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+  // Adobe Target property token (must load BEFORE the Launch script)
+  function targetPageParams() {
+    return {
+      "at_property": "6dca00c2-78fa-5e7e-b4b8-5e0a0746ade3"
+    };
+  }
+</script>
 <script src="https://assets.adobedtm.com/4fa03d1212c6/bb02d45cddc1/launch-dde8c0de58cf-development.min.js" async></script>
   <style>
 :root{
@@ -463,6 +471,10 @@ function loadTargetJsonOffer(attempt) {
 
   window.adobe.target.getOffer({
     mbox: "target-global-mbox",
+
+    params: {
+      "at_property": "6dca00c2-78fa-5e7e-b4b8-5e0a0746ade3"
+    },
 
     success: function (offers) {
       console.log("Adobe Target getOffer response:", offers);
